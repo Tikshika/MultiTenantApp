@@ -49,11 +49,11 @@ export function HeroImageGallery({
   const currentImage = images[currentIndex];
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200">
+    <div className="relative min-w-0 overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200">
       <img
         src={currentImage?.image_url ?? fallbackImage}
         alt={`${tenantName} storefront`}
-        className="h-[420px] w-full object-cover"
+        className="h-64 w-full object-cover sm:h-[360px] md:h-[420px]"
       />
       {images.length > 1 && (
         <>

@@ -27,19 +27,19 @@ export default async function TenantPage({ params }: TenantPageProps) {
         className="border-b border-slate-200"
         style={{ backgroundColor: storefront.accentSoft }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <StorefrontBrand tenant={storefront} />
-            <div>
-              <h1 className="text-2xl font-bold">{storefront.name}</h1>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold leading-tight sm:text-2xl">{storefront.name}</h1>
             </div>
           </div>
 
-          <nav className="flex items-center gap-5 text-sm font-medium text-slate-700">
-            <Link href={`/${storefront.slug}`}>Home</Link>
-            <Link href={`/${storefront.slug}#products`}>Products</Link>
-            <Link href={`/${storefront.slug}#about`}>About</Link>
-            <Link href="/admin">Admin</Link>
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-slate-700 sm:justify-end">
+            <Link className="py-1" href={`/${storefront.slug}`}>Home</Link>
+            <Link className="py-1" href={`/${storefront.slug}#products`}>Products</Link>
+            <Link className="py-1" href={`/${storefront.slug}#about`}>About</Link>
+            <Link className="py-1" href="/admin">Admin</Link>
             <button
               className="rounded-full px-4 py-2 text-white shadow-sm"
               style={{ backgroundColor: storefront.accent }}
@@ -50,9 +50,9 @@ export default async function TenantPage({ params }: TenantPageProps) {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 md:grid-cols-[1.2fr_0.8fr] md:items-center">
-        <div>
-          <h2 className="text-4xl font-black tracking-tight text-slate-900 md:text-6xl">
+      <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-12 md:grid-cols-[1.2fr_0.8fr] md:items-center">
+        <div className="min-w-0">
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
             {storefront.tagline}
           </h2>
           <p className="mt-5 max-w-lg text-lg text-slate-700">{storefront.description}</p>
@@ -72,8 +72,8 @@ export default async function TenantPage({ params }: TenantPageProps) {
         accentSoft={storefront.accentSoft}
       />
 
-      <section id="about" className="mx-auto max-w-6xl px-6 py-12">
-        <div className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-8 md:grid-cols-3">
+      <section id="about" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="grid min-w-0 gap-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-8 md:grid-cols-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">About</p>
             <h3 className="mt-2 text-2xl font-bold text-slate-900">Local-first, tenant-aware.</h3>

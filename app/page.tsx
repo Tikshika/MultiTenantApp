@@ -7,16 +7,16 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <section className="mx-auto max-w-6xl px-6 py-16 md:py-20">
-        <div className="mb-10 flex items-center justify-between gap-4">
+      <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16 md:py-20">
+        <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <StorefrontBrand tenant={tenant} />
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
             <Link href="/admin" className="text-sm font-semibold text-white hover:text-amber-200">
               Admin
             </Link>
             <Link
               href={`/${tenant.slug}`}
-              className="rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 transition hover:bg-slate-200"
+              className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 sm:px-6 sm:py-3 sm:text-base"
             >
               Open shop
             </Link>
@@ -24,7 +24,7 @@ export default function Home() {
         </div>
 
         <div className="mb-12">
-          <h1 className="text-5xl font-black tracking-tight md:text-7xl">{tenant.name}</h1>
+          <h1 className="text-4xl font-black tracking-tight sm:text-5xl md:text-7xl">{tenant.name}</h1>
         </div>
 
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-sm">
@@ -33,7 +33,7 @@ export default function Home() {
             style={{ backgroundImage: `url(${tenant.heroImage})` }}
           />
 
-          <div className="grid gap-10 p-7 md:grid-cols-[1.2fr_0.8fr] md:p-10">
+          <div className="grid min-w-0 gap-8 p-5 sm:p-7 md:grid-cols-[1.2fr_0.8fr] md:gap-10 md:p-10">
             <div>
               <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-900">
                 {tenant.category}
@@ -53,7 +53,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-14 rounded-[28px] border border-white/10 bg-slate-900 p-7">
+        <div className="mt-10 rounded-[28px] border border-white/10 bg-slate-900 p-5 sm:mt-14 sm:p-7">
           <h3 className="text-3xl font-bold text-white">About us</h3>
           <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">
             Sulthan Hardware has served homes, contractors, and businesses with durable materials,
