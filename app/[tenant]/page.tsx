@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTenantBySlug, tenants } from "@/lib/tenant-data";
 import { StorefrontBrand } from "@/components/storefront-brand";
 import { ProductCatalog } from "@/components/product-catalog";
+import { HeroImageGallery } from "@/components/hero-image-gallery";
 
 type TenantPageProps = {
   params: Promise<{ tenant: string }>;
@@ -28,7 +29,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <StorefrontBrand tenant={storefront} detailsClassName="hidden xl:block" />
+            <StorefrontBrand tenant={storefront} />
             <div>
               <h1 className="text-2xl font-bold">{storefront.name}</h1>
             </div>
@@ -51,38 +52,17 @@ export default async function TenantPage({ params }: TenantPageProps) {
 
       <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 md:grid-cols-[1.2fr_0.8fr] md:items-center">
         <div>
-          <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-            Multi-tenant storefront
-          </span>
-          <h2 className="mt-5 text-4xl font-black tracking-tight text-slate-900 md:text-6xl">
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 md:text-6xl">
             {storefront.tagline}
           </h2>
           <p className="mt-5 max-w-lg text-lg text-slate-700">{storefront.description}</p>
-
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href={`/${storefront.slug}#products`}
-              className="rounded-full px-6 py-3 font-semibold text-white shadow-lg transition hover:opacity-90"
-              style={{ backgroundColor: storefront.accent }}
-            >
-              Shop now
-            </Link>
-            <Link
-              href={`/${storefront.slug}#about`}
-              className="rounded-full border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Learn more
-            </Link>
-          </div>
         </div>
 
-        <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200">
-          <img
-            src={storefront.heroImage}
-            alt={storefront.name}
-            className="h-[420px] w-full object-cover"
-          />
-        </div>
+        <HeroImageGallery
+          tenantSlug={storefront.slug}
+          tenantName={storefront.name}
+          fallbackImage={storefront.heroImage}
+        />
       </section>
 
       <ProductCatalog

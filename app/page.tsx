@@ -9,7 +9,7 @@ export default function Home() {
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto max-w-6xl px-6 py-16 md:py-20">
         <div className="mb-10 flex items-center justify-between gap-4">
-          <StorefrontBrand tenant={tenant} tone="dark" detailsClassName="hidden sm:block" />
+          <StorefrontBrand tenant={tenant} />
           <div className="flex items-center gap-5">
             <Link href="/admin" className="text-sm font-semibold text-white hover:text-amber-200">
               Admin

@@ -20,6 +20,8 @@ SULTHAN_HARDWARE_TENANT_ID=1001
 
 Images must be JPEG, PNG, or WebP and no larger than 5 MB. Images are saved under a tenant folder in the configured Storage bucket. Product paths and details are stored in `public.products`; storefronts load active products from that table and receive short-lived signed image URLs.
 
+Super admins and authorized store owners can manage up to 10 storefront hero images at `/admin/hero-images`. Apply `supabase/migrations/005_tenant_hero_images.sql` before using this page. Hero image files are stored in the configured Storage bucket, while their tenant, storage path, and display order are stored in `public.tenant_hero_images`. Each image must be JPEG, PNG, or WebP and up to 4 MB. The storefront rotates through configured hero images and uses its built-in image if none have been uploaded.
+
 Each storefront slug maps to its database ID using server-side configuration such as `SULTHAN_HARDWARE_TENANT_ID`, not a hard-coded ID. API routes verify the configured ID and slug match `public.tenants`, and associate product records with that ID. Admin role and tenant assignment are read from `public.admin_accounts`.
 
 ## Prepare the database and create the first admin

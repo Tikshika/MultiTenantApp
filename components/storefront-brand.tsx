@@ -3,18 +3,10 @@ import Image from "next/image";
 import type { StorefrontTenant } from "@/lib/tenant-data";
 
 type StorefrontBrandProps = {
-  tenant: Pick<StorefrontTenant, "name" | "logo" | "address" | "phone">;
-  tone?: "light" | "dark";
-  detailsClassName?: string;
+  tenant: Pick<StorefrontTenant, "name" | "logo">;
 };
 
-export function StorefrontBrand({
-  tenant,
-  tone = "light",
-  detailsClassName = "",
-}: StorefrontBrandProps) {
-  const detailColor = tone === "dark" ? "text-slate-300" : "text-slate-600";
-
+export function StorefrontBrand({ tenant }: StorefrontBrandProps) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <Link href="/" aria-label={`Go to ${tenant.name} home page`} className="shrink-0">
@@ -28,10 +20,6 @@ export function StorefrontBrand({
           />
         </span>
       </Link>
-      <div className={`${detailsClassName} min-w-0 text-xs leading-5 ${detailColor}`}>
-        <p>{tenant.address}</p>
-        <p>{tenant.phone}</p>
-      </div>
     </div>
   );
 }
