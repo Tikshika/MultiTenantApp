@@ -121,11 +121,11 @@ export async function POST(request: Request, { params }: RouteProps) {
   let imagePath: string | null = null;
   try {
     await client.query("begin");
-    const tenant = await client.query(
+    const tenantResult = await client.query(
       "select id from public.tenants where id = $1 for update",
       [admin.tenantId],
     );
-    if (!tenant.rows[0]) {
+    if (!tenantResult.rows[0]) {
       await client.query("rollback");
       return NextResponse.json({ error: "Store not found." }, { status: 404 });
     }
