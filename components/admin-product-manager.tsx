@@ -11,6 +11,9 @@ type AdminProductManagerProps = {
 type Product = {
   id: number;
   name: string;
+  description: string | null;
+  price: number;
+  stock_qty: number;
   image_url: string | null;
 };
 
@@ -30,6 +33,7 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -105,29 +109,38 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
     }
   }
 
-  async function handleUpload(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
     setNotice("");
     const form = event.currentTarget;
     try {
-      const response = await fetch(`/api/admin/tenants/${tenantSlug}/products`, {
-        method: "POST",
-        body: new FormData(form),
-      });
-      const result = (await response.json()) as { error?: string };
+      const response = await fetch(
+        editingProduct
+          ? `/api/admin/tenants/${tenantSlug}/products/${editingProduct.id}`
+          : `/api/admin/tenants/${tenantSlug}/products`,
+        {
+          method: editingProduct ? "PATCH" : "POST",
+          body: new FormData(form),
+        },
+      );
+      const result = (await response.json()) as { error?: string; warning?: string };
 
       if (!response.ok) {
-        setError(result.error ?? "Product could not be uploaded.");
+        setError(result.error ?? "Product could not be saved.");
         return;
       }
 
       form.reset();
-      setNotice("Product and image uploaded successfully.");
+      setEditingProduct(null);
+      setNotice(
+        result.warning ??
+          (editingProduct ? "Product updated successfully." : "Product and image uploaded successfully."),
+      );
       await loadProducts();
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Product upload request failed.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Product save request failed.");
     } finally {
       setBusy(false);
     }
@@ -151,7 +164,7 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
       ) : session && isAuthorized ? (
         <div>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Add a product</h2>
+            <h2 className="text-xl font-semibold">{editingProduct ? "Edit product" : "Add a product"}</h2>
             <span className="text-sm text-slate-600">{session.email}</span>
             {session.role === "super_admin" && (
               <Link href="/admin/accounts" className="text-sm font-semibold text-amber-800 underline">
@@ -167,34 +180,101 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
               Sign out
             </button>
           </div>
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleUpload}>
+          <form
+            id="admin-product-form"
+            key={editingProduct?.id ?? "new"}
+            className="grid gap-4 sm:grid-cols-2"
+            onSubmit={handleSaveProduct}
+          >
             <label className="grid gap-1 text-sm font-medium">
               Product name
-              <input name="name" className="rounded-lg border border-slate-300 px-3 py-2" required maxLength={150} />
+              <input
+                name="name"
+                defaultValue={editingProduct?.name ?? ""}
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                required
+                maxLength={150}
+              />
             </label>
             <label className="grid gap-1 text-sm font-medium">
               Price
-              <input name="price" className="rounded-lg border border-slate-300 px-3 py-2" type="number" min="0" step="0.01" required />
+              <input
+                name="price"
+                defaultValue={editingProduct?.price ?? ""}
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
             </label>
             <label className="grid gap-1 text-sm font-medium sm:col-span-2">
               Description
-              <textarea name="description" className="rounded-lg border border-slate-300 px-3 py-2" rows={3} maxLength={2000} />
+              <textarea
+                name="description"
+                defaultValue={editingProduct?.description ?? ""}
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                rows={3}
+                maxLength={2000}
+              />
             </label>
             <label className="grid gap-1 text-sm font-medium">
               Stock quantity
-              <input name="stock" className="rounded-lg border border-slate-300 px-3 py-2" type="number" min="0" step="1" defaultValue="0" required />
+              <input
+                name="stock"
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                type="number"
+                min="0"
+                step="1"
+                defaultValue={editingProduct?.stock_qty ?? "0"}
+                required
+              />
             </label>
             <label className="grid gap-1 text-sm font-medium">
-              Product image (JPEG, PNG, WebP; max 5 MB)
-              <input name="image" className="rounded-lg border border-slate-300 px-3 py-2" type="file" accept="image/jpeg,image/png,image/webp" required />
+              {editingProduct
+                ? "Replace product image (optional; JPEG, PNG, WebP; max 5 MB)"
+                : "Product image (JPEG, PNG, WebP; max 5 MB)"}
+              <input
+                name="image"
+                className="rounded-lg border border-slate-300 px-3 py-2"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                required={!editingProduct}
+              />
             </label>
+            {editingProduct?.image_url && (
+              <div className="flex items-center gap-3 text-sm text-slate-600 sm:col-span-2">
+                <img src={editingProduct.image_url} alt="" className="h-12 w-12 rounded object-cover" />
+                Current product image
+              </div>
+            )}
             <button
               className="rounded-lg bg-amber-700 px-4 py-2 font-semibold text-white disabled:opacity-50 sm:col-span-2"
               type="submit"
               disabled={busy}
             >
-              {busy ? "Uploading..." : "Save product and upload image"}
+              {busy
+                ? editingProduct
+                  ? "Saving..."
+                  : "Uploading..."
+                : editingProduct
+                  ? "Save changes"
+                  : "Save product and upload image"}
             </button>
+            {editingProduct && (
+              <button
+                className="rounded-lg border border-slate-300 px-4 py-2 font-semibold sm:col-span-2"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setEditingProduct(null);
+                  setError("");
+                  setNotice("");
+                }}
+              >
+                Cancel editing
+              </button>
+            )}
           </form>
 
           <div className="mt-8 border-t border-slate-200 pt-6">
@@ -208,7 +288,19 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                     {product.image_url && (
                       <img src={product.image_url} alt="" className="h-12 w-12 rounded object-cover" />
                     )}
-                    <span>{product.name}</span>
+                    <span className="flex-1">{product.name}</span>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setError("");
+                        setNotice("");
+                        document.getElementById("admin-product-form")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      Edit
+                    </button>
                   </li>
                 ))}
               </ul>

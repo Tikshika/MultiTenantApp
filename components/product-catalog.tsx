@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useStorefrontCart } from "@/components/storefront-cart";
 
 type ProductCatalogProps = {
   tenantSlug: string;
@@ -22,6 +23,7 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const { addToCart, removeFromCart, quantityInCart } = useStorefrontCart();
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +87,52 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
                   {currency} {product.price}
                 </p>
                 <p className="mt-1 text-sm text-slate-500">{product.stock_qty} in stock</p>
+                {quantityInCart(product.id) > 0 ? (
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <div
+                      className="flex items-center overflow-hidden rounded-xl border border-slate-200"
+                      aria-label={`${product.name} quantity controls`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => removeFromCart(product.id)}
+                        aria-label={`Remove one ${product.name}`}
+                        className="px-4 py-2.5 text-lg font-semibold transition hover:bg-slate-100"
+                      >
+                        −
+                      </button>
+                      <span
+                        aria-live="polite"
+                        aria-label={`${quantityInCart(product.id)} added`}
+                        className="min-w-10 text-center font-semibold text-slate-900"
+                      >
+                        {quantityInCart(product.id)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(product, product.stock_qty)}
+                        disabled={quantityInCart(product.id) >= product.stock_qty}
+                        aria-label={`Add one ${product.name}`}
+                        className="px-4 py-2.5 text-lg font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-sm font-medium text-slate-600">
+                      {quantityInCart(product.id) >= product.stock_qty ? "Stock limit reached" : "In cart"}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => addToCart(product, product.stock_qty)}
+                    disabled={product.stock_qty <= 0}
+                    className="mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none"
+                    style={{ backgroundColor: product.stock_qty <= 0 ? "#cbd5e1" : accent }}
+                  >
+                    {product.stock_qty <= 0 ? "Out of stock" : "Add to cart"}
+                  </button>
+                )}
               </div>
             </article>
           ))}

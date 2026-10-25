@@ -4,6 +4,7 @@ import { getTenantBySlug, tenants } from "@/lib/tenant-data";
 import { StorefrontBrand } from "@/components/storefront-brand";
 import { ProductCatalog } from "@/components/product-catalog";
 import { HeroImageGallery } from "@/components/hero-image-gallery";
+import { StorefrontCartButton, StorefrontCartProvider } from "@/components/storefront-cart";
 
 type TenantPageProps = {
   params: Promise<{ tenant: string }>;
@@ -22,6 +23,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
   }
 
   return (
+    <StorefrontCartProvider key={storefront.slug}>
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <header
         className="border-b border-slate-200"
@@ -40,12 +42,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
             <Link className="py-1" href={`/${storefront.slug}#products`}>Products</Link>
             <Link className="py-1" href={`/${storefront.slug}#about`}>About</Link>
             <Link className="py-1" href="/admin">Admin</Link>
-            <button
-              className="rounded-full px-4 py-2 text-white shadow-sm"
-              style={{ backgroundColor: storefront.accent }}
-            >
-              Cart (0)
-            </button>
+            <StorefrontCartButton accent={storefront.accent} currency={storefront.currency} />
           </nav>
         </div>
       </header>
@@ -97,5 +94,6 @@ export default async function TenantPage({ params }: TenantPageProps) {
         </div>
       </section>
     </main>
+    </StorefrontCartProvider>
   );
 }
