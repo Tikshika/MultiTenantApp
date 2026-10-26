@@ -23,6 +23,36 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     return NextResponse.json({ error: "Invalid product ID." }, { status: 400 });
   }
 
+  if (request.headers.get("content-type")?.includes("application/json")) {
+    let body: { is_active?: unknown };
+    try {
+      body = (await request.json()) as { is_active?: unknown };
+    } catch {
+      return NextResponse.json({ error: "The product status request could not be read." }, { status: 400 });
+    }
+
+    if (typeof body.is_active !== "boolean") {
+      return NextResponse.json({ error: "Choose whether this product is active." }, { status: 400 });
+    }
+
+    try {
+      const result = await admin.pool.query<{ is_active: boolean }>(
+        `update public.products
+            set is_active = $1
+          where id = $2 and tenant_id = $3
+          returning is_active`,
+        [body.is_active, productId, admin.tenantId],
+      );
+      if (!result.rows[0]) {
+        return NextResponse.json({ error: "Product not found in this store." }, { status: 404 });
+      }
+      return NextResponse.json({ is_active: result.rows[0].is_active });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Product status update failed.";
+      return NextResponse.json({ error: `Product status could not be updated: ${message}.` }, { status: 502 });
+    }
+  }
+
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_SIZE + 32_768) {
     return NextResponse.json({ error: "Images must be 5 MB or smaller." }, { status: 413 });
@@ -39,6 +69,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   const description = formData.get("description");
   const priceValue = formData.get("price");
   const stockValue = formData.get("stock");
+  const activeValue = formData.get("is_active");
   const price = typeof priceValue === "string" ? Number(priceValue) : Number.NaN;
   const stock = typeof stockValue === "string" ? Number(stockValue) : Number.NaN;
   const image = formData.get("image");
@@ -64,6 +95,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     stock > 2_147_483_647
   ) {
     return NextResponse.json({ error: "Enter a valid non-negative stock quantity." }, { status: 400 });
+  }
+  if (activeValue !== "true" && activeValue !== "false") {
+    return NextResponse.json({ error: "Choose whether this product is active." }, { status: 400 });
   }
 
   const hasNewImage = image instanceof File && image.size > 0;
@@ -122,7 +156,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const currentProduct = await admin.pool.query<{ image_url: string | null }>(
       `select image_url
          from public.products
-        where id = $1 and tenant_id = $2 and is_active = true`,
+        where id = $1 and tenant_id = $2`,
       [productId, admin.tenantId],
     );
     if (currentProduct.rowCount === 0) {
@@ -134,14 +168,15 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     await admin.pool.query(
       `update public.products
           set name = $1, description = $2, price = $3, stock_qty = $4,
-              image_url = coalesce($5, image_url)
-        where id = $6 and tenant_id = $7 and is_active = true`,
+              image_url = coalesce($5, image_url), is_active = $6
+        where id = $7 and tenant_id = $8`,
       [
         name.trim(),
         description.trim() || null,
         price,
         stock,
         imagePath,
+        activeValue === "true",
         productId,
         admin.tenantId,
       ],

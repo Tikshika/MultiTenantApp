@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authorizeStoreAdmin } from "@/lib/supabase/authorize-admin";
 import { getSupabaseAdmin, productImageBucket } from "@/lib/supabase/admin";
-import { getActiveProducts } from "@/lib/supabase/products";
+import { getProducts } from "@/lib/supabase/products";
 
 type RouteProps = {
   params: Promise<{ tenant: string }>;
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: RouteProps) {
 
   try {
     const supabase = getSupabaseAdmin();
-    const products = await getActiveProducts(admin.pool, supabase, admin.tenantId);
+    const products = await getProducts(admin.pool, supabase, admin.tenantId, true);
     return NextResponse.json({ products });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load products.";

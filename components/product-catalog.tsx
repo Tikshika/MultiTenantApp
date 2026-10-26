@@ -23,7 +23,20 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<Product | null>(null);
+  const [imageZoom, setImageZoom] = useState(1);
   const { addToCart, removeFromCart, quantityInCart } = useStorefrontCart();
+
+  useEffect(() => {
+    if (!selectedImage) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedImage(null);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedImage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +84,17 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
           {products.map((product) => (
             <article key={product.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               {product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="h-48 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedImage(product);
+                    setImageZoom(1);
+                  }}
+                  aria-label={`View ${product.name} image`}
+                  className="block h-48 w-full cursor-zoom-in"
+                >
+                  <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                </button>
               ) : (
                 <div
                   className="flex h-48 items-center justify-center text-sm font-semibold text-slate-700"
@@ -136,6 +159,67 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {selectedImage?.image_url && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setSelectedImage(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-image-title"
+            className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
+              <h4 id="product-image-title" className="truncate font-semibold text-slate-900">
+                {selectedImage.name}
+              </h4>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setImageZoom((zoom) => Math.max(0.5, zoom - 0.25))}
+                  disabled={imageZoom <= 0.5}
+                  aria-label="Zoom out"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 text-xl disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  −
+                </button>
+                <span className="min-w-12 text-center text-sm text-slate-600" aria-live="polite">
+                  {Math.round(imageZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setImageZoom((zoom) => Math.min(3, zoom + 0.25))}
+                  disabled={imageZoom >= 3}
+                  aria-label="Zoom in"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 text-xl disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(null)}
+                  aria-label="Close image viewer"
+                  className="ml-1 grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-xl text-slate-700 hover:bg-slate-200"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[75vh] overflow-auto bg-slate-100 p-3">
+              <img
+                src={selectedImage.image_url}
+                alt={selectedImage.name}
+                className="mx-auto h-auto"
+                style={{ width: `${imageZoom * 100}%`, maxWidth: "none" }}
+              />
+            </div>
+          </section>
         </div>
       )}
     </section>

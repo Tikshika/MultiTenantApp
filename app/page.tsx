@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { tenants } from "@/lib/tenant-data";
 import { StorefrontBrand } from "@/components/storefront-brand";
+import { HeroImageGallery } from "@/components/hero-image-gallery";
 
 export default function Home() {
   const tenant = tenants[0];
@@ -28,9 +29,11 @@ export default function Home() {
         </div>
 
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-sm">
-          <div
-            className="h-72 bg-cover bg-center md:h-96"
-            style={{ backgroundImage: `url(${tenant.heroImage})` }}
+          <HeroImageGallery
+            tenantSlug={tenant.slug}
+            tenantName={tenant.name}
+            fallbackImage={tenant.heroImage}
+            imageClassName="h-72 w-full object-cover md:h-96"
           />
 
           <div className="grid min-w-0 gap-8 p-5 sm:p-7 md:grid-cols-[1.2fr_0.8fr] md:gap-10 md:p-10">

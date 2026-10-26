@@ -9,15 +9,21 @@ type ProductRow = {
   price: string | number;
   stock_qty: number;
   image_url: string | null;
+  is_active: boolean;
 };
 
-export async function getActiveProducts(pool: Pool, supabase: SupabaseClient, tenantId: number) {
+export async function getProducts(
+  pool: Pool,
+  supabase: SupabaseClient,
+  tenantId: number,
+  includeInactive = false,
+) {
   const { rows: products } = await pool.query<ProductRow>(
-    `select id, name, description, price, stock_qty, image_url
+    `select id, name, description, price, stock_qty, image_url, is_active
        from public.products
-      where tenant_id = $1 and is_active = true
+      where tenant_id = $1 and ($2::boolean or is_active = true)
       order by created_at desc`,
-    [tenantId],
+    [tenantId, includeInactive],
   );
 
   return Promise.all(
@@ -47,4 +53,8 @@ export async function getActiveProducts(pool: Pool, supabase: SupabaseClient, te
       };
     }),
   );
+}
+
+export function getActiveProducts(pool: Pool, supabase: SupabaseClient, tenantId: number) {
+  return getProducts(pool, supabase, tenantId);
 }

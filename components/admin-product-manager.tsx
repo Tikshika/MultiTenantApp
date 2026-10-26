@@ -15,6 +15,7 @@ type Product = {
   price: number;
   stock_qty: number;
   image_url: string | null;
+  is_active: boolean;
 };
 
 type AdminSession = {
@@ -34,6 +35,7 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [statusUpdatingProductId, setStatusUpdatingProductId] = useState<number | null>(null);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -146,6 +148,39 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
     }
   }
 
+  async function handleProductStatusChange(product: Product, isActive: boolean) {
+    setStatusUpdatingProductId(product.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/tenants/${tenantSlug}/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: isActive }),
+      });
+      const result = (await response.json()) as { is_active?: boolean; error?: string };
+      if (!response.ok || typeof result.is_active !== "boolean") {
+        setError(result.error ?? "Product status could not be updated.");
+        return;
+      }
+
+      const updatedIsActive = result.is_active;
+      setProducts((currentProducts) =>
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id ? { ...currentProduct, is_active: updatedIsActive } : currentProduct,
+        ),
+      );
+      setEditingProduct((currentProduct) =>
+        currentProduct?.id === product.id ? { ...currentProduct, is_active: updatedIsActive } : currentProduct,
+      );
+      setNotice(`${product.name} is now ${updatedIsActive ? "active" : "inactive"}.`);
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : "Product status update request failed.");
+    } finally {
+      setStatusUpdatingProductId(null);
+    }
+  }
+
   return (
     <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       {error && (
@@ -230,6 +265,19 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                 required
               />
             </label>
+            {editingProduct && (
+              <label className="grid gap-1 text-sm font-medium">
+                Product status
+                <select
+                  name="is_active"
+                  defaultValue={editingProduct.is_active ? "true" : "false"}
+                  className="rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <option value="true">Active — visible in the store</option>
+                  <option value="false">Inactive — hidden from the store</option>
+                </select>
+              </label>
+            )}
             <label className="grid gap-1 text-sm font-medium">
               {editingProduct
                 ? "Replace product image (optional; JPEG, PNG, WebP; max 5 MB)"
@@ -280,7 +328,7 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
           <div className="mt-8 border-t border-slate-200 pt-6">
             <h3 className="font-semibold">Products in this store ({products.length})</h3>
             {products.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-600">No active products are saved yet.</p>
+              <p className="mt-2 text-sm text-slate-600">No products are saved yet.</p>
             ) : (
               <ul className="mt-3 divide-y divide-slate-100">
                 {products.map((product) => (
@@ -289,9 +337,25 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                       <img src={product.image_url} alt="" className="h-12 w-12 rounded object-cover" />
                     )}
                     <span className="flex-1">{product.name}</span>
+                    <label className="sr-only" htmlFor={`product-status-${product.id}`}>
+                      {product.name} status
+                    </label>
+                    <select
+                      id={`product-status-${product.id}`}
+                      value={product.is_active ? "true" : "false"}
+                      disabled={busy || statusUpdatingProductId !== null}
+                      onChange={(event) => handleProductStatusChange(product, event.target.value === "true")}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold disabled:cursor-wait disabled:opacity-60 ${
+                        product.is_active ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
                     <button
                       type="button"
                       className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                      disabled={statusUpdatingProductId !== null}
                       onClick={() => {
                         setEditingProduct(product);
                         setError("");
