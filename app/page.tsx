@@ -38,9 +38,6 @@ export default function Home() {
 
           <div className="grid min-w-0 gap-8 p-5 sm:p-7 md:grid-cols-[1.2fr_0.8fr] md:gap-10 md:p-10">
             <div>
-              <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-900">
-                {tenant.category}
-              </span>
               <h2 className="mt-5 text-3xl font-bold leading-tight md:text-5xl">
                 {tenant.tagline}
               </h2>

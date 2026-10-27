@@ -25,7 +25,7 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<Product | null>(null);
   const [imageZoom, setImageZoom] = useState(1);
-  const { addToCart, removeFromCart, quantityInCart } = useStorefrontCart();
+  const { addToCart, removeFromCart, quantityInCart, stockAvailable } = useStorefrontCart();
 
   useEffect(() => {
     if (!selectedImage) return;
@@ -81,7 +81,11 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
         </p>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {products.map((product) => (
+          {products.map((product) => {
+            const availableStock = stockAvailable(product.id, product.stock_qty);
+            const cartQuantity = quantityInCart(product.id);
+            const remainingStock = Math.max(0, availableStock - cartQuantity);
+            return (
             <article key={product.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               {product.image_url ? (
                 <button
@@ -109,8 +113,8 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
                 <p className="mt-4 text-xl font-bold" style={{ color: accent }}>
                   {currency} {product.price}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">{product.stock_qty} in stock</p>
-                {quantityInCart(product.id) > 0 ? (
+                <p className="mt-1 text-sm text-slate-500">{remainingStock} in stock</p>
+                {cartQuantity > 0 ? (
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <div
                       className="flex items-center overflow-hidden rounded-xl border border-slate-200"
@@ -126,15 +130,15 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
                       </button>
                       <span
                         aria-live="polite"
-                        aria-label={`${quantityInCart(product.id)} added`}
+                        aria-label={`${cartQuantity} added`}
                         className="min-w-10 text-center font-semibold text-slate-900"
                       >
-                        {quantityInCart(product.id)}
+                        {cartQuantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => addToCart(product, product.stock_qty)}
-                        disabled={quantityInCart(product.id) >= product.stock_qty}
+                        disabled={cartQuantity >= availableStock}
                         aria-label={`Add one ${product.name}`}
                         className="px-4 py-2.5 text-lg font-semibold transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400"
                       >
@@ -142,23 +146,23 @@ export function ProductCatalog({ tenantSlug, currency, accent, accentSoft }: Pro
                       </button>
                     </div>
                     <span className="text-sm font-medium text-slate-600">
-                      {quantityInCart(product.id) >= product.stock_qty ? "Stock limit reached" : "In cart"}
+                      {cartQuantity >= availableStock ? "Stock limit reached" : "In cart"}
                     </span>
                   </div>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => addToCart(product, product.stock_qty)}
-                    disabled={product.stock_qty <= 0}
+                    onClick={() => addToCart(product, availableStock)}
+                    disabled={availableStock <= 0}
                     className="mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none"
-                    style={{ backgroundColor: product.stock_qty <= 0 ? "#cbd5e1" : accent }}
+                    style={{ backgroundColor: availableStock <= 0 ? "#cbd5e1" : accent }}
                   >
-                    {product.stock_qty <= 0 ? "Out of stock" : "Add to cart"}
+                    {availableStock <= 0 ? "Out of stock" : "Add to cart"}
                   </button>
                 )}
               </div>
             </article>
-          ))}
+          );})}
         </div>
       )}
 

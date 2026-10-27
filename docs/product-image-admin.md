@@ -18,9 +18,9 @@ SULTHAN_HARDWARE_TENANT_ID=1001
 
 `DATABASE_URL` is a server-side database credential. Keep it private and use a restricted database role where practical. `SUPABASE_SERVICE_ROLE_KEY` must be a Supabase secret key (or legacy `service_role` key); a publishable/anon key cannot upload to Storage. It is server-only and is needed for image uploads and signed URLs for a private bucket. Do not prefix it with `NEXT_PUBLIC_` or commit any secret values. Restart the app after environment changes.
 
-Images must be JPEG, PNG, or WebP and no larger than 5 MB. Images are saved under a tenant folder in the configured Storage bucket. Product paths and details are stored in `public.products`; storefronts load active products from that table and receive short-lived signed image URLs.
+Product and hero images are accepted as JPEG, PNG, or WebP, optimized in the browser to WebP at 80% quality, and resized so the longest side is at most 1,920 pixels before upload. Source images must be no larger than 25 MB; optimized product images must be 5 MB or less and hero images 4 MB or less. The app keeps the original file if WebP encoding would increase its size. Images are saved under a tenant folder in the configured Storage bucket. Product paths and details are stored in `public.products`; storefronts load active products from that table and receive short-lived signed image URLs.
 
-Super admins and authorized store owners can manage up to 10 storefront hero images at `/admin/hero-images`. Apply `supabase/migrations/005_tenant_hero_images.sql` before using this page. Hero image files are stored in the configured Storage bucket, while their tenant, storage path, and display order are stored in `public.tenant_hero_images`. Each image must be JPEG, PNG, or WebP and up to 4 MB. The storefront rotates through configured hero images and uses its built-in image if none have been uploaded.
+Super admins and authorized store owners can manage up to 10 storefront hero images at `/admin/hero-images`. Apply `supabase/migrations/005_tenant_hero_images.sql` before using this page. Hero image files are stored in the configured Storage bucket, while their tenant, storage path, and display order are stored in `public.tenant_hero_images`. The storefront rotates through configured hero images and uses its built-in image if none have been uploaded.
 
 Each storefront slug maps to its database ID using server-side configuration such as `SULTHAN_HARDWARE_TENANT_ID`, not a hard-coded ID. API routes verify the configured ID and slug match `public.tenants`, and associate product records with that ID. Admin role and tenant assignment are read from `public.admin_accounts`.
 
@@ -40,5 +40,7 @@ Super admins can manage accounts at `/admin/accounts`: create, edit, assign role
 ## Database migrations
 
 The admin tables have row-level security enabled, and access is granted only through the server's `DATABASE_URL` connection. Apply migrations using the Supabase SQL editor or your established migration workflow. Never send database credentials through chat.
+
+Apply `supabase/migrations/006_storefront_quotes.sql` to enable quote checkout. When a shopper submits a quote, the server saves the customer number and product/price snapshots, validates and reduces inventory in one transaction, and records the inventory changes. The shopper is then given a WhatsApp draft to review and send.
 
 If database or Storage configuration is missing or a request fails, the app returns an explicit error rather than reporting a successful product load or upload.

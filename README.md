@@ -22,6 +22,12 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## WhatsApp quotes
+
+Set `APP_OWNER_WHATSAPP_NUMBER` in `.env.local` to the store owner's WhatsApp number in international format using digits only, including the country code (for example, `919876543210`). Restart the development server after changing the value.
+
+In the storefront cart, shoppers enter their mobile number with a leading `+` and country code (for example, `+919876543210`). The app checks the number's format, saves the quote and reduces inventory in PostgreSQL when they submit, then opens WhatsApp with a message containing the tenant, cart items, authoritative prices, total, shopper's number, and quote reference. The shopper must review and send the message; this does not automatically place an order or verify that the phone number belongs to them. Apply `supabase/migrations/006_storefront_quotes.sql` before enabling quote checkout.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

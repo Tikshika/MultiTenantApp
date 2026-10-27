@@ -42,7 +42,11 @@ export default async function TenantPage({ params }: TenantPageProps) {
             <Link className="py-1" href={`/${storefront.slug}#products`}>Products</Link>
             <Link className="py-1" href={`/${storefront.slug}#about`}>About</Link>
             <Link className="py-1" href="/admin">Admin</Link>
-            <StorefrontCartButton accent={storefront.accent} currency={storefront.currency} />
+            <StorefrontCartButton
+              accent={storefront.accent}
+              currency={storefront.currency}
+              tenantSlug={storefront.slug}
+            />
           </nav>
         </div>
       </header>

@@ -1,10 +1,96 @@
 import { NextResponse } from "next/server";
+import type { PoolClient } from "pg";
+import { requireSameOrigin } from "@/lib/admin-request";
 import { authorizeStoreAdmin } from "@/lib/supabase/authorize-admin";
 import { getSupabaseAdmin, productImageBucket } from "@/lib/supabase/admin";
 
 type RouteProps = {
   params: Promise<{ tenant: string; id: string }>;
 };
+
+export async function DELETE(request: Request, { params }: RouteProps) {
+  const originError = requireSameOrigin(request);
+  if (originError) return originError;
+
+  const { tenant: tenantSlug, id: idValue } = await params;
+  const admin = await authorizeStoreAdmin(tenantSlug);
+  if (admin instanceof Response) return admin;
+
+  const productId = Number(idValue);
+  if (!/^\d+$/.test(idValue) || !Number.isSafeInteger(productId) || productId <= 0) {
+    return NextResponse.json({ error: "Invalid product ID." }, { status: 400 });
+  }
+
+  let client: PoolClient;
+  try {
+    client = await admin.pool.connect();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database connection failed.";
+    return NextResponse.json({ error: `Product could not be deleted: ${message}.` }, { status: 503 });
+  }
+
+  let imagePath: string | null = null;
+  let transactionOpen = false;
+  try {
+    await client.query("begin");
+    transactionOpen = true;
+    const productResult = await client.query<{ image_url: string | null }>(
+      `select image_url
+         from public.products
+        where id = $1 and tenant_id = $2
+        for update`,
+      [productId, admin.tenantId],
+    );
+    if (!productResult.rows[0]) {
+      await client.query("rollback");
+      transactionOpen = false;
+      return NextResponse.json({ error: "Product not found in this store." }, { status: 404 });
+    }
+
+    const references = await client.query<{ has_order_history: boolean; has_inventory_history: boolean }>(
+      `select
+         exists (select 1 from public.order_items where tenant_id = $1 and product_id = $2) as has_order_history,
+         exists (select 1 from public.inventory_log where tenant_id = $1 and product_id = $2) as has_inventory_history`,
+      [admin.tenantId, productId],
+    );
+    if (references.rows[0].has_order_history || references.rows[0].has_inventory_history) {
+      await client.query("rollback");
+      transactionOpen = false;
+      return NextResponse.json(
+        { error: "This product has order or inventory history and cannot be permanently deleted. Set it to inactive instead." },
+        { status: 409 },
+      );
+    }
+
+    imagePath = productResult.rows[0].image_url;
+    await client.query(
+      "delete from public.products where id = $1 and tenant_id = $2",
+      [productId, admin.tenantId],
+    );
+    await client.query("commit");
+    transactionOpen = false;
+  } catch (error) {
+    if (transactionOpen) await client.query("rollback");
+    const message = error instanceof Error ? error.message : "Product deletion failed.";
+    return NextResponse.json({ error: `Product could not be deleted: ${message}.` }, { status: 502 });
+  } finally {
+    client.release();
+  }
+
+  let warning: string | undefined;
+  if (imagePath && !/^https?:\/\//i.test(imagePath) && imagePath.startsWith(`${tenantSlug}/`)) {
+    try {
+      const supabase = getSupabaseAdmin();
+      const { error } = await supabase.storage.from(productImageBucket).remove([imagePath]);
+      if (error) warning = `Product deleted, but its image could not be removed from Storage: ${error.message}`;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Storage configuration is invalid.";
+      warning = `Product deleted, but its image could not be removed from Storage: ${message}`;
+    }
+  }
+
+  return NextResponse.json({ id: productId, ...(warning ? { warning } : {}) });
+}
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const IMAGE_TYPES = {

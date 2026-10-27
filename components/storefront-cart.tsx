@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 export type CartProduct = {
   id: number;
@@ -21,20 +21,27 @@ type StorefrontCartContextValue = {
   addToCart: (product: CartProduct, stockQty: number) => void;
   removeFromCart: (productId: number) => void;
   quantityInCart: (productId: number) => number;
+  stockAvailable: (productId: number, fallback: number) => number;
+  updateStock: (productId: number, stockQty: number) => void;
+  clearCart: () => void;
 };
 
 const StorefrontCartContext = createContext<StorefrontCartContextValue | null>(null);
 
 export function StorefrontCartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Record<number, CartItem>>({});
+  const [stockOverrides, setStockOverrides] = useState<Record<number, number>>({});
 
   function addToCart(product: CartProduct, stockQty: number) {
     setItems((currentItems) => ({
       ...currentItems,
       [product.id]: {
         product,
-        stockQty,
-        quantity: Math.min((currentItems[product.id]?.quantity ?? 0) + 1, stockQty),
+        stockQty: stockOverrides[product.id] ?? stockQty,
+        quantity: Math.min(
+          (currentItems[product.id]?.quantity ?? 0) + 1,
+          stockOverrides[product.id] ?? stockQty,
+        ),
       },
     }));
   }
@@ -56,16 +63,45 @@ export function StorefrontCartProvider({ children }: { children: ReactNode }) {
     return items[productId]?.quantity ?? 0;
   }
 
+  function stockAvailable(productId: number, fallback: number) {
+    return stockOverrides[productId] ?? fallback;
+  }
+
+  function updateStock(productId: number, stockQty: number) {
+    setStockOverrides((current) => ({ ...current, [productId]: stockQty }));
+  }
+
+  function clearCart() {
+    setItems({});
+  }
+
   const cartItems = Object.values(items);
   const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
     <StorefrontCartContext.Provider
-      value={{ itemCount, items: cartItems, addToCart, removeFromCart, quantityInCart }}
+      value={{
+        itemCount,
+        items: cartItems,
+        addToCart,
+        removeFromCart,
+        quantityInCart,
+        stockAvailable,
+        updateStock,
+        clearCart,
+      }}
     >
       {children}
     </StorefrontCartContext.Provider>
   );
+}
+
+function normalizeCustomerMobile(value: string) {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
+  return digits ? `+91${digits}` : "";
 }
 
 export function useStorefrontCart() {
@@ -76,10 +112,77 @@ export function useStorefrontCart() {
   return cart;
 }
 
-export function StorefrontCartButton({ accent, currency }: { accent: string; currency: string }) {
-  const { itemCount, items, addToCart, removeFromCart } = useStorefrontCart();
+export function StorefrontCartButton({
+  accent,
+  currency,
+  tenantSlug,
+}: {
+  accent: string;
+  currency: string;
+  tenantSlug: string;
+}) {
+  const { itemCount, items, addToCart, removeFromCart, updateStock, clearCart } = useStorefrontCart();
   const [isOpen, setIsOpen] = useState(false);
+  const [customerMobile, setCustomerMobile] = useState("+91");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [quoteWhatsAppUrl, setQuoteWhatsAppUrl] = useState("");
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+  function openCart() {
+    setCheckoutError("");
+    setIsOpen(true);
+  }
+
+  async function submitQuote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const mobile = normalizeCustomerMobile(customerMobile);
+    setCustomerMobile(mobile || "+91");
+    if (!/^\+[1-9]\d{7,14}$/.test(mobile)) {
+      setCheckoutError("Enter a valid mobile number with country code, such as +919876543210.");
+      return;
+    }
+
+    if (items.length === 0 || isSubmittingQuote) return;
+
+    const whatsappWindow = window.open("about:blank", "_blank");
+    if (whatsappWindow) whatsappWindow.opener = null;
+    setIsSubmittingQuote(true);
+    setCheckoutError("");
+    setQuoteWhatsAppUrl("");
+
+    try {
+      const response = await fetch(`/api/storefront/${encodeURIComponent(tenantSlug)}/quotes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerMobile: mobile,
+          items: items.map(({ product, quantity }) => ({ productId: product.id, quantity })),
+        }),
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        whatsappUrl?: string;
+        remainingStock?: Array<{ productId: number; stockQty: number }>;
+      };
+      if (!response.ok || !result.whatsappUrl || !result.remainingStock) {
+        throw new Error(result.error ?? "Could not save your quote.");
+      }
+
+      for (const stock of result.remainingStock) updateStock(stock.productId, stock.stockQty);
+      clearCart();
+      setQuoteWhatsAppUrl(result.whatsappUrl);
+      if (whatsappWindow) {
+        whatsappWindow.location.href = result.whatsappUrl;
+      }
+    } catch (submitError) {
+      whatsappWindow?.close();
+      setCheckoutError(submitError instanceof Error ? submitError.message : "Could not save your quote.");
+    } finally {
+      setIsSubmittingQuote(false);
+    }
+
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -98,7 +201,7 @@ export function StorefrontCartButton({ accent, currency }: { accent: string; cur
         type="button"
         aria-label={`Cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
         aria-expanded={isOpen}
-        onClick={() => setIsOpen(true)}
+        onClick={openCart}
         className="rounded-full px-4 py-2 text-white shadow-sm"
         style={{ backgroundColor: accent }}
       >
@@ -137,8 +240,28 @@ export function StorefrontCartButton({ accent, currency }: { accent: string; cur
 
             {items.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <p className="text-lg font-semibold text-slate-900">Your cart is empty</p>
-                <p className="mt-2 text-sm text-slate-600">Add products to see them here.</p>
+                {quoteWhatsAppUrl ? (
+                  <>
+                    <p className="text-lg font-semibold text-slate-900">Your quote was saved.</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Continue in WhatsApp to review the quote and send it to the store.
+                    </p>
+                    <a
+                      href={quoteWhatsAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-5 rounded-xl px-5 py-3 text-sm font-semibold text-white"
+                      style={{ backgroundColor: accent }}
+                    >
+                      Open WhatsApp
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-slate-900">Your cart is empty</p>
+                    <p className="mt-2 text-sm text-slate-600">Add products to see them here.</p>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
@@ -210,11 +333,49 @@ export function StorefrontCartButton({ accent, currency }: { accent: string; cur
                   ))}
                 </ul>
                 <footer className="border-t border-slate-200 px-5 py-5 sm:px-6">
-                  <div className="flex justify-between text-lg font-bold text-slate-900">
-                    <span>Total</span>
-                    <span>{currency} {total.toFixed(2)}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">Delivery and payment are arranged with the store.</p>
+                  <form onSubmit={submitQuote}>
+                    <label className="grid gap-2 text-sm font-medium text-slate-700">
+                      Your mobile number (with country code)
+                      <input
+                        type="tel"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        required
+                        maxLength={24}
+                        value={customerMobile}
+                        onChange={(event) => {
+                          setCustomerMobile(event.currentTarget.value);
+                          setCheckoutError("");
+                        }}
+                        onBlur={() => setCustomerMobile(normalizeCustomerMobile(customerMobile) || "+91")}
+                        placeholder="+919876543210"
+                        aria-describedby={checkoutError ? "quote-error" : "mobile-help"}
+                        aria-invalid={Boolean(checkoutError)}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-slate-900"
+                      />
+                    </label>
+                    <p id="mobile-help" className="mt-1 text-xs text-slate-500">
+                      India&apos;s country code (+91) is prefilled and added if omitted. WhatsApp opens with your quote for you to review and send.
+                    </p>
+                    {checkoutError && (
+                      <p id="quote-error" role="alert" className="mt-2 text-sm text-red-700">
+                        {checkoutError}
+                      </p>
+                    )}
+                    <div className="mt-4 flex justify-between text-lg font-bold text-slate-900">
+                      <span>Total</span>
+                      <span>{currency} {total.toFixed(2)}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Delivery and payment are arranged with the store.</p>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingQuote}
+                      className="mt-4 w-full rounded-xl px-5 py-3 text-sm font-semibold text-white"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {isSubmittingQuote ? "Saving quote..." : "Request quote on WhatsApp"}
+                    </button>
+                  </form>
                 </footer>
               </>
             )}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { optimizeImageForUpload } from "@/lib/optimize-upload-image";
 
 type HeroImage = {
   id: number;
@@ -67,7 +68,7 @@ export function AdminHeroImageManager({ tenantSlug }: AdminHeroImageManagerProps
     try {
       for (const file of files) {
         const formData = new FormData();
-        formData.append("image", file);
+        formData.append("image", await optimizeImageForUpload(file, 4 * 1024 * 1024));
         const response = await fetch(`/api/admin/tenants/${tenantSlug}/hero-images`, {
           method: "POST",
           body: formData,
@@ -151,7 +152,7 @@ export function AdminHeroImageManager({ tenantSlug }: AdminHeroImageManagerProps
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-semibold">Storefront hero images</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Upload up to {MAX_HERO_IMAGES} JPEG, PNG, or WebP images. Each image can be up to 4 MB.
+          Upload up to {MAX_HERO_IMAGES} JPEG, PNG, or WebP images (source up to 25 MB each). Images are optimized to WebP and resized to at most 1920 pixels before upload; optimized files can be up to 4 MB.
           The storefront rotates through them automatically.
         </p>
         <label className="mt-5 grid max-w-xl gap-2 text-sm font-medium">
@@ -184,7 +185,14 @@ export function AdminHeroImageManager({ tenantSlug }: AdminHeroImageManagerProps
                   <div className="flex gap-2">
                     <button type="button" disabled={busy || index === 0} onClick={() => void moveImage(index, -1)} aria-label={`Move image ${index + 1} up`} className="rounded border px-2 py-1 disabled:opacity-40">↑</button>
                     <button type="button" disabled={busy || index === images.length - 1} onClick={() => void moveImage(index, 1)} aria-label={`Move image ${index + 1} down`} className="rounded border px-2 py-1 disabled:opacity-40">↓</button>
-                    <button type="button" disabled={busy} onClick={() => void deleteImage(image)} className="rounded border border-red-200 px-2 py-1 text-red-700 disabled:opacity-40">Delete</button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void deleteImage(image)}
+                      className="rounded border border-red-300 px-2 py-1 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Delete image
+                    </button>
                   </div>
                 </div>
               </li>

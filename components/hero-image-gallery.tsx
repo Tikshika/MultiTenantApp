@@ -21,6 +21,7 @@ export function HeroImageGallery({
   imageClassName = "h-64 w-full object-cover sm:h-[360px] md:h-[420px]",
 }: HeroImageGalleryProps) {
   const [images, setImages] = useState<HeroImage[]>([]);
+  const [loadedTenantSlug, setLoadedTenantSlug] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [imageZoom, setImageZoom] = useState(1);
@@ -41,12 +42,19 @@ export function HeroImageGallery({
     void fetch(`/api/storefront/${tenantSlug}/hero-images`, { cache: "no-store" })
       .then(async (response) => {
         const result = (await response.json()) as { images?: HeroImage[] };
-        if (response.ok && !cancelled && result.images?.length) {
-          setImages(result.images);
+        if (!response.ok) throw new Error("Could not load storefront hero images.");
+        if (!cancelled) {
+          setImages(result.images ?? []);
+          setCurrentIndex(0);
+          setLoadedTenantSlug(tenantSlug);
         }
       })
       .catch(() => {
-        if (!cancelled) setImages([]);
+        if (!cancelled) {
+          setImages([]);
+          setCurrentIndex(0);
+          setLoadedTenantSlug(tenantSlug);
+        }
       });
     return () => {
       cancelled = true;
@@ -61,26 +69,35 @@ export function HeroImageGallery({
     return () => window.clearInterval(interval);
   }, [images.length, isViewerOpen]);
 
-  const currentImage = images[currentIndex];
+  const isLoaded = loadedTenantSlug === tenantSlug;
+  const currentImage = isLoaded ? images[currentIndex] : undefined;
+  const imageSrc = currentImage?.image_url ?? (isLoaded ? fallbackImage : undefined);
 
   return (
-    <div className="relative min-w-0 overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200">
-      <button
-        type="button"
-        onClick={() => {
-          setImageZoom(1);
-          setIsViewerOpen(true);
-        }}
-        aria-label={`View ${tenantName} hero image`}
-        className="block w-full cursor-zoom-in"
-      >
-        <img
-          src={currentImage?.image_url ?? fallbackImage}
-          alt={`${tenantName} storefront`}
-          className={imageClassName}
-        />
-      </button>
-      {images.length > 1 && (
+    <div
+      className="relative min-w-0 overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200"
+      aria-busy={!isLoaded}
+    >
+      {imageSrc ? (
+        <button
+          type="button"
+          onClick={() => {
+            setImageZoom(1);
+            setIsViewerOpen(true);
+          }}
+          aria-label={`View ${tenantName} hero image`}
+          className="block w-full cursor-zoom-in"
+        >
+          <img
+            src={imageSrc}
+            alt={`${tenantName} storefront`}
+            className={imageClassName}
+          />
+        </button>
+      ) : (
+        <div className={imageClassName} role="status" aria-label={`Loading ${tenantName} hero images`} />
+      )}
+      {isLoaded && images.length > 1 && (
         <>
           <button
             type="button"
@@ -114,7 +131,7 @@ export function HeroImageGallery({
           </div>
         </>
       )}
-      {isViewerOpen && (
+      {isViewerOpen && imageSrc && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"
           onClick={(event) => {
@@ -165,7 +182,7 @@ export function HeroImageGallery({
             </div>
             <div className="max-h-[75vh] overflow-auto bg-slate-100 p-3">
               <img
-                src={currentImage?.image_url ?? fallbackImage}
+                src={imageSrc}
                 alt={`${tenantName} storefront`}
                 className="mx-auto h-auto"
                 style={{ width: `${imageZoom * 100}%`, maxWidth: "none" }}

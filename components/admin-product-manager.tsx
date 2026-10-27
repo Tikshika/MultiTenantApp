@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { optimizeImageForUpload } from "@/lib/optimize-upload-image";
 
 type AdminProductManagerProps = {
   tenantSlug: string;
@@ -118,13 +119,19 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
     setNotice("");
     const form = event.currentTarget;
     try {
+      const formData = new FormData(form);
+      const image = formData.get("image");
+      if (image instanceof File && image.size > 0) {
+        formData.set("image", await optimizeImageForUpload(image, 5 * 1024 * 1024));
+      }
+
       const response = await fetch(
         editingProduct
           ? `/api/admin/tenants/${tenantSlug}/products/${editingProduct.id}`
           : `/api/admin/tenants/${tenantSlug}/products`,
         {
           method: editingProduct ? "PATCH" : "POST",
-          body: new FormData(form),
+          body: formData,
         },
       );
       const result = (await response.json()) as { error?: string; warning?: string };
@@ -178,6 +185,35 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
       setError(statusError instanceof Error ? statusError.message : "Product status update request failed.");
     } finally {
       setStatusUpdatingProductId(null);
+    }
+  }
+
+  async function handleDeleteProduct(product: Product) {
+    if (
+      !window.confirm(
+        `Permanently delete "${product.name}"? This cannot be undone. Products with order or inventory history cannot be deleted.`,
+      )
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/tenants/${tenantSlug}/products/${product.id}`, {
+        method: "DELETE",
+      });
+      const result = (await response.json()) as { error?: string; warning?: string };
+      if (!response.ok) throw new Error(result.error ?? "Product could not be deleted.");
+
+      setProducts((currentProducts) => currentProducts.filter((item) => item.id !== product.id));
+      setEditingProduct((currentProduct) => (currentProduct?.id === product.id ? null : currentProduct));
+      setNotice(result.warning ?? `${product.name} was permanently deleted.`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Product deletion request failed.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -280,8 +316,8 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
             )}
             <label className="grid gap-1 text-sm font-medium">
               {editingProduct
-                ? "Replace product image (optional; JPEG, PNG, WebP; max 5 MB)"
-                : "Product image (JPEG, PNG, WebP; max 5 MB)"}
+                ? "Replace product image (optional; JPEG, PNG, WebP; source up to 25 MB, optimized to 5 MB or less)"
+                : "Product image (JPEG, PNG, WebP; source up to 25 MB, optimized to 5 MB or less)"}
               <input
                 name="image"
                 className="rounded-lg border border-slate-300 px-3 py-2"
@@ -310,18 +346,28 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                   : "Save product and upload image"}
             </button>
             {editingProduct && (
-              <button
-                className="rounded-lg border border-slate-300 px-4 py-2 font-semibold sm:col-span-2"
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setEditingProduct(null);
-                  setError("");
-                  setNotice("");
-                }}
-              >
-                Cancel editing
-              </button>
+              <div className="flex flex-wrap gap-3 sm:col-span-2">
+                <button
+                  className="rounded-lg border border-slate-300 px-4 py-2 font-semibold"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setError("");
+                    setNotice("");
+                  }}
+                >
+                  Cancel editing
+                </button>
+                <button
+                  className="rounded-lg border border-red-300 px-4 py-2 font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleDeleteProduct(editingProduct)}
+                >
+                  {busy ? "Deleting..." : "Delete product"}
+                </button>
+              </div>
             )}
           </form>
 
@@ -354,8 +400,8 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                     </select>
                     <button
                       type="button"
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-                      disabled={statusUpdatingProductId !== null}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+                      disabled={busy || statusUpdatingProductId !== null}
                       onClick={() => {
                         setEditingProduct(product);
                         setError("");
@@ -364,6 +410,14 @@ export function AdminProductManager({ tenantSlug }: AdminProductManagerProps) {
                       }}
                     >
                       Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      disabled={busy || statusUpdatingProductId !== null}
+                      onClick={() => void handleDeleteProduct(product)}
+                    >
+                      Delete
                     </button>
                   </li>
                 ))}
